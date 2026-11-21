@@ -20,10 +20,7 @@ If success, then animate_drawing & editor.clear_error()
 Q10
 
 
-sliders:  
-shape slider (data-test-id="shape-slider"): 0-100, passed to draw as shape_slider; set_drawing without reset_clock so finished drawings stay complete  
-speed slider (data-test-id="speed-slider"): -2 to 2, calls render.set_speed; negative plays backward  
-controls:  
-Pause: set_speed(0.0) freezes the clock; click again (Play) resumes at the slider rate  
-Restart: render.reset_clock() replays the current drawing without changing code  
-Reset: shape back to 10, speed back to 1.0, unpause, re-run draw and apply default speed  
+sliders are in canvas part of animator.css  
+shape_slider - reruns draw and calls set_drawing without reset_clock, dragging keeps clock time  
+speed - calls render.set_speed  
+->moving the speed slider while paused updates stored rate but only executes when press play  
