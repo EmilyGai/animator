@@ -15,3 +15,15 @@ files - app.gleam + render.gleam. view_anim-adds an animation canvas. canvas_id 
 error:  
 SetCode runs run_source that has error string calling editor.set_error to underline line if known. model.output shows red banner. Underline is from CodeMirror decorations in editor_ffi.mjs  
 If success, then animate_drawing & editor.clear_error()
+
+
+Q10
+
+
+sliders:  
+shape slider (data-test-id="shape-slider"): 0-100, passed to draw as shape_slider; set_drawing without reset_clock so finished drawings stay complete  
+speed slider (data-test-id="speed-slider"): -2 to 2, calls render.set_speed; negative plays backward  
+controls:  
+Pause: set_speed(0.0) freezes the clock; click again (Play) resumes at the slider rate  
+Restart: render.reset_clock() replays the current drawing without changing code  
+Reset: shape back to 10, speed back to 1.0, unpause, re-run draw and apply default speed  
