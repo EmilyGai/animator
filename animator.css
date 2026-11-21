@@ -229,4 +229,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
   min-width: 0;
   accent-color: #8a8aca;
 }
+.drawing-select {
+  flex: 1;
+  min-width: 0;
+  background: #1a1a3e;
+  color: #d4c5a0;
+  border: 1px solid #4a4a8a;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
 

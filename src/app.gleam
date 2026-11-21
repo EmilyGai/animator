@@ -1,6 +1,7 @@
 //// Animator -- an application for program-generated drawings.
 
 import builtins
+import data
 import drawing
 import editor
 import errors
@@ -40,6 +41,10 @@ const default_shape_slider = 10
 
 const default_speed = 1.0
 
+/// Gradescope treats every non-empty option value as a drawing, so "New drawing…"
+/// must use the empty string.
+const new_drawing_option = ""
+
 // ── Model ──────────────────────────────────────────────────────────────────────
 
 pub type Model {
@@ -55,6 +60,10 @@ pub type Model {
     speed: Float,
     // When True, the clock is held still via set_speed(0.0).
     paused: Bool,
+    // Named drawings available in the drop-down (name, source).
+    drawings: List(#(String, String)),
+    // Name of the drawing currently open in the editor.
+    selected: String,
   )
 }
 
@@ -67,6 +76,12 @@ pub type Msg {
   ResetSliders
   // Replay the current drawing from the start without changing the code.
   RestartAnimation
+  // User picked a drawing (or "New drawing…") in the drop-down.
+  SelectDrawing(String)
+  // User confirmed a name for a newly created drawing.
+  ConfirmNewDrawing(String)
+  // Prompt cancelled: re-render so the <select> snaps back to `selected`.
+  CancelNewDrawing
 
   // Layout controls
   ToggleCode
@@ -75,19 +90,26 @@ pub type Msg {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 pub fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
+  let library = data.load_library()
+  let source = case find_source(library.drawings, library.selected) {
+    Ok(src) -> src
+    Error(_) -> default_code
+  }
   #(
     Model(
-      source: "",
+      source: source,
       code_open: True,
       output: "",
       shape_slider: default_shape_slider,
       speed: default_speed,
       paused: False,
+      drawings: library.drawings,
+      selected: library.selected,
     ),
     // Effects that happen automatically at the start go here.
     effect.batch([
-      editor.mount(default_code, SetCode),
-      effect.from(fn(dispatch) { dispatch(SetCode(default_code)) }),
+      editor.mount(source, SetCode),
+      effect.from(fn(dispatch) { dispatch(SetCode(source)) }),
     ]),
   )
 }
@@ -120,14 +142,66 @@ fn apply_drawing_result(
       Model(..model, output: "", source: source, shape_slider: shape_slider),
       effect.batch([on_ok(paths), editor.clear_error()]),
     )
+    // Broken drawings still open: show the code and error, and draw nothing.
     Error(#(msg, line)) -> #(
       Model(..model, output: msg, source: source, shape_slider: shape_slider),
-      case line {
-        Some(n) -> editor.set_error(n, msg)
-        None -> editor.clear_error()
-      },
+      effect.batch([
+        clear_drawing(),
+        case line {
+          Some(n) -> editor.set_error(n, msg)
+          None -> editor.clear_error()
+        },
+      ]),
     )
   }
+}
+
+fn save_model_library(model: Model) -> Nil {
+  data.save_library(data.Library(
+    selected: model.selected,
+    drawings: model.drawings,
+  ))
+}
+
+fn upsert_source(
+  drawings: List(#(String, String)),
+  name: String,
+  source: String,
+) -> List(#(String, String)) {
+  list.map(drawings, fn(drawing) {
+    case drawing.0 == name {
+      True -> #(name, source)
+      False -> drawing
+    }
+  })
+}
+
+fn find_source(
+  drawings: List(#(String, String)),
+  name: String,
+) -> Result(String, Nil) {
+  case list.find(drawings, fn(drawing) { drawing.0 == name }) {
+    Ok(#(_, source)) -> Ok(source)
+    Error(_) -> Error(Nil)
+  }
+}
+
+fn open_drawing(
+  model: Model,
+  drawings: List(#(String, String)),
+  name: String,
+  source: String,
+) -> #(Model, Effect(Msg)) {
+  let model =
+    Model(..model, drawings: drawings, selected: name, source: source)
+  save_model_library(model)
+  #(
+    model,
+    effect.batch([
+      editor.mount(source, SetCode),
+      effect.from(fn(dispatch) { dispatch(SetCode(source)) }),
+    ]),
+  )
 }
 
 // ── Update ─────────────────────────────────────────────────────────────────────
@@ -136,11 +210,15 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     ToggleCode -> #(Model(..model, code_open: !model.code_open), effect.none())
 
-    // After each keystroke, re-evaluate and restart the animation from empty.
-    SetCode(text) ->
+    // After each keystroke, re-evaluate, keep the library entry in sync, and save.
+    SetCode(text) -> {
+      let drawings = upsert_source(model.drawings, model.selected, text)
+      let model = Model(..model, drawings: drawings)
+      save_model_library(model)
       apply_drawing_result(model, text, model.shape_slider, fn(paths) {
         effect.batch([push_drawing(paths), reset_clock()])
       })
+    }
 
     // Shape slider: redraw at the same clock so a finished drawing stays complete.
     SetShapeSlider(raw) -> {
@@ -186,6 +264,56 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
 
     RestartAnimation -> #(model, reset_clock())
+
+    SelectDrawing(name) ->
+      case name {
+        // Empty value = "New drawing…" (not a real library entry).
+        "" -> #(
+          model,
+          effect.from(fn(dispatch) {
+            case data.prompt_drawing_name() {
+              "" -> dispatch(CancelNewDrawing)
+              new_name -> dispatch(ConfirmNewDrawing(new_name))
+            }
+          }),
+        )
+        n if n == model.selected -> #(model, effect.none())
+        n -> {
+          // Persist the outgoing edit before switching so round-trips keep it.
+          let drawings =
+            upsert_source(model.drawings, model.selected, model.source)
+          case find_source(drawings, n) {
+            Ok(source) -> open_drawing(model, drawings, n, source)
+            Error(_) -> {
+              let model = Model(..model, drawings: drawings)
+              save_model_library(model)
+              #(model, effect.none())
+            }
+          }
+        }
+      }
+
+    CancelNewDrawing -> #(model, effect.none())
+
+    ConfirmNewDrawing(name) ->
+      case name {
+        "" -> #(model, effect.none())
+        n ->
+          case find_source(model.drawings, n) {
+            // Name already taken: open that drawing instead of duplicating.
+            Ok(source) -> {
+              let drawings =
+                upsert_source(model.drawings, model.selected, model.source)
+              open_drawing(model, drawings, n, source)
+            }
+            Error(_) -> {
+              let drawings =
+                upsert_source(model.drawings, model.selected, model.source)
+                |> list.append([#(n, default_code)])
+              open_drawing(model, drawings, n, default_code)
+            }
+          }
+      }
   }
 }
 
@@ -195,6 +323,13 @@ fn push_drawing(paths: List(Path)) -> Effect(Msg) {
     let rendered =
       list.map(paths, fn(path) { render.render_path(path, path_color) })
     render.set_drawing(rendered)
+  })
+}
+
+fn clear_drawing() -> Effect(Msg) {
+  effect.from(fn(_dispatch) {
+    render.set_drawing([])
+    render.reset_clock()
   })
 }
 
@@ -257,7 +392,26 @@ fn view_controls(model: Model) -> Element(Msg) {
     True -> #("Play", "Resume animation")
     False -> #("Pause", "Pause animation")
   }
+  let drawing_options =
+    list.map(model.drawings, fn(drawing) {
+      html.option([attr.value(drawing.0)], drawing.0)
+    })
+    |> list.append([
+      html.option([attr.value(new_drawing_option)], "New drawing…"),
+    ])
   html.div([attr.class("controls")], [
+    html.label([attr.class("control")], [
+      html.span([attr.class("control-label")], [html.text("drawing")]),
+      html.select(
+        [
+          attr.attribute("data-test-id", "drawing-select"),
+          attr.class("drawing-select"),
+          attr.value(model.selected),
+          event.on_change(SelectDrawing),
+        ],
+        drawing_options,
+      ),
+    ]),
     html.div([attr.class("control-row")], [
       html.button(
         [

@@ -12,6 +12,7 @@ import * as $element from "../lustre/lustre/element.mjs";
 import * as $html from "../lustre/lustre/element/html.mjs";
 import * as $event from "../lustre/lustre/event.mjs";
 import * as $builtins from "./builtins.mjs";
+import * as $data from "./data.mjs";
 import * as $drawing from "./drawing.mjs";
 import * as $editor from "./editor.mjs";
 import * as $errors from "./errors.mjs";
@@ -30,7 +31,7 @@ import * as $shape from "./shape.mjs";
 const FILEPATH = "src/app.gleam";
 
 export class Model extends $CustomType {
-  constructor(source, code_open, output, shape_slider, speed, paused) {
+  constructor(source, code_open, output, shape_slider, speed, paused, drawings, selected) {
     super();
     this.source = source;
     this.code_open = code_open;
@@ -38,10 +39,19 @@ export class Model extends $CustomType {
     this.shape_slider = shape_slider;
     this.speed = speed;
     this.paused = paused;
+    this.drawings = drawings;
+    this.selected = selected;
   }
 }
-export const Model$Model = (source, code_open, output, shape_slider, speed, paused) =>
-  new Model(source, code_open, output, shape_slider, speed, paused);
+export const Model$Model = (source, code_open, output, shape_slider, speed, paused, drawings, selected) =>
+  new Model(source,
+  code_open,
+  output,
+  shape_slider,
+  speed,
+  paused,
+  drawings,
+  selected);
 export const Model$isModel = (value) => value instanceof Model;
 export const Model$Model$source = (value) => value.source;
 export const Model$Model$0 = (value) => value.source;
@@ -55,6 +65,10 @@ export const Model$Model$speed = (value) => value.speed;
 export const Model$Model$4 = (value) => value.speed;
 export const Model$Model$paused = (value) => value.paused;
 export const Model$Model$5 = (value) => value.paused;
+export const Model$Model$drawings = (value) => value.drawings;
+export const Model$Model$6 = (value) => value.drawings;
+export const Model$Model$selected = (value) => value.selected;
+export const Model$Model$7 = (value) => value.selected;
 
 export class SetCode extends $CustomType {
   constructor($0) {
@@ -102,18 +116,53 @@ export const Msg$RestartAnimation = () => Msg$RestartAnimation$const;
 export const Msg$isRestartAnimation = (value) =>
   value instanceof RestartAnimation;
 
+export class SelectDrawing extends $CustomType {
+  constructor($0) {
+    super();
+    this[0] = $0;
+  }
+}
+export const Msg$SelectDrawing = ($0) => new SelectDrawing($0);
+export const Msg$isSelectDrawing = (value) => value instanceof SelectDrawing;
+export const Msg$SelectDrawing$0 = (value) => value[0];
+
+export class ConfirmNewDrawing extends $CustomType {
+  constructor($0) {
+    super();
+    this[0] = $0;
+  }
+}
+export const Msg$ConfirmNewDrawing = ($0) => new ConfirmNewDrawing($0);
+export const Msg$isConfirmNewDrawing = (value) =>
+  value instanceof ConfirmNewDrawing;
+export const Msg$ConfirmNewDrawing$0 = (value) => value[0];
+
+export class CancelNewDrawing extends $CustomType {}
+export const Msg$CancelNewDrawing$const = new CancelNewDrawing();
+export const Msg$CancelNewDrawing = () => Msg$CancelNewDrawing$const;
+export const Msg$isCancelNewDrawing = (value) =>
+  value instanceof CancelNewDrawing;
+
 export class ToggleCode extends $CustomType {}
 export const Msg$ToggleCode$const = new ToggleCode();
 export const Msg$ToggleCode = () => Msg$ToggleCode$const;
 export const Msg$isToggleCode = (value) => value instanceof ToggleCode;
 
-const default_code = "fn draw(shape_slider: Int) -> List(Path) {\n  [Path(Line(Point(0, 0), Point(100, 100)), 0, 10, 2)]\n}\n";
-
 const default_speed = 1.0;
 
 const default_shape_slider = 10;
 
+const default_code = "fn draw(shape_slider: Int) -> List(Path) {\n  [Path(Line(Point(0, 0), Point(100, 100)), 0, 10, 2)]\n}\n";
+
 const path_color = "#d4c5a0";
+
+/**
+ * Gradescope treats every non-empty option value as a drawing, so "New drawing…"
+ * must use the empty string.
+ * 
+ * @ignore
+ */
+const new_drawing_option = "";
 
 /**
  * Your app's public address, once you've deployed it in Problem 13, such as
@@ -136,16 +185,43 @@ export const video_url = "";
  */
 export const include_video_in_gallery = false;
 
+function find_source(drawings, name) {
+  let $ = $list.find(drawings, (drawing) => { return drawing[0] === name; });
+  if ($ instanceof Ok) {
+    let source = $[0][1];
+    return new Ok(source);
+  } else {
+    return new Error(undefined);
+  }
+}
+
 export function init(_) {
+  let library = $data.load_library();
+  let _block;
+  let $ = find_source(library.drawings, library.selected);
+  if ($ instanceof Ok) {
+    let src = $[0];
+    _block = src;
+  } else {
+    _block = default_code;
+  }
+  let source = _block;
   return [
-    new Model("", true, "", default_shape_slider, default_speed, false),
+    new Model(
+      source,
+      true,
+      "",
+      default_shape_slider,
+      default_speed,
+      false,
+      library.drawings,
+      library.selected,
+    ),
     $effect.batch(
       listPrepend(
-        $editor.mount(default_code, (var0) => { return new SetCode(var0); }),
+        $editor.mount(source, (var0) => { return new SetCode(var0); }),
         listPrepend(
-          $effect.from(
-            (dispatch) => { return dispatch(new SetCode(default_code)); },
-          ),
+          $effect.from((dispatch) => { return dispatch(new SetCode(source)); }),
           $List$Empty$const,
         ),
       ),
@@ -170,6 +246,15 @@ function run_source(shape_slider, source) {
   }
 }
 
+function clear_drawing() {
+  return $effect.from(
+    (_) => {
+      $render.set_drawing($List$Empty$const);
+      return $render.reset_clock();
+    },
+  );
+}
+
 function apply_drawing_result(model, source, shape_slider, on_ok) {
   let $ = run_source(shape_slider, source);
   if ($ instanceof Ok) {
@@ -182,6 +267,8 @@ function apply_drawing_result(model, source, shape_slider, on_ok) {
         shape_slider,
         model.speed,
         model.paused,
+        model.drawings,
+        model.selected,
       ),
       $effect.batch(
         listPrepend(
@@ -201,17 +288,71 @@ function apply_drawing_result(model, source, shape_slider, on_ok) {
         shape_slider,
         model.speed,
         model.paused,
+        model.drawings,
+        model.selected,
       ),
-      (() => {
-        if (line instanceof Some) {
-          let n = line[0];
-          return $editor.set_error(n, msg);
-        } else {
-          return $editor.clear_error();
-        }
-      })(),
+      $effect.batch(
+        listPrepend(
+          clear_drawing(),
+          listPrepend(
+            (() => {
+              if (line instanceof Some) {
+                let n = line[0];
+                return $editor.set_error(n, msg);
+              } else {
+                return $editor.clear_error();
+              }
+            })(),
+            $List$Empty$const,
+          ),
+        ),
+      ),
     ];
   }
+}
+
+function save_model_library(model) {
+  return $data.save_library(new $data.Library(model.selected, model.drawings));
+}
+
+function upsert_source(drawings, name, source) {
+  return $list.map(
+    drawings,
+    (drawing) => {
+      let $ = drawing[0] === name;
+      if ($) {
+        return [name, source];
+      } else {
+        return drawing;
+      }
+    },
+  );
+}
+
+function open_drawing(model, drawings, name, source) {
+  let model$1 = new Model(
+    source,
+    model.code_open,
+    model.output,
+    model.shape_slider,
+    model.speed,
+    model.paused,
+    drawings,
+    name,
+  );
+  save_model_library(model$1);
+  return [
+    model$1,
+    $effect.batch(
+      listPrepend(
+        $editor.mount(source, (var0) => { return new SetCode(var0); }),
+        listPrepend(
+          $effect.from((dispatch) => { return dispatch(new SetCode(source)); }),
+          $List$Empty$const,
+        ),
+      ),
+    ),
+  ];
 }
 
 function reset_clock() {
@@ -264,10 +405,22 @@ function parse_speed(raw) {
 export function update(model, msg) {
   if (msg instanceof SetCode) {
     let text = msg[0];
-    return apply_drawing_result(
-      model,
-      text,
+    let drawings = upsert_source(model.drawings, model.selected, text);
+    let model$1 = new Model(
+      model.source,
+      model.code_open,
+      model.output,
       model.shape_slider,
+      model.speed,
+      model.paused,
+      drawings,
+      model.selected,
+    );
+    save_model_library(model$1);
+    return apply_drawing_result(
+      model$1,
+      text,
+      model$1.shape_slider,
       (paths) => {
         return $effect.batch(
           listPrepend(
@@ -297,6 +450,8 @@ export function update(model, msg) {
       model.shape_slider,
       speed,
       model.paused,
+      model.drawings,
+      model.selected,
     );
     let $ = model$1.paused;
     if ($) {
@@ -315,6 +470,8 @@ export function update(model, msg) {
           model.shape_slider,
           model.speed,
           false,
+          model.drawings,
+          model.selected,
         ),
         set_speed(model.speed),
       ];
@@ -327,6 +484,8 @@ export function update(model, msg) {
           model.shape_slider,
           model.speed,
           true,
+          model.drawings,
+          model.selected,
         ),
         set_speed(0.0),
       ];
@@ -339,6 +498,8 @@ export function update(model, msg) {
       default_shape_slider,
       default_speed,
       false,
+      model.drawings,
+      model.selected,
     );
     let $ = apply_drawing_result(
       model$1,
@@ -359,6 +520,82 @@ export function update(model, msg) {
     ];
   } else if (msg instanceof RestartAnimation) {
     return [model, reset_clock()];
+  } else if (msg instanceof SelectDrawing) {
+    let name = msg[0];
+    if (name === "") {
+      return [
+        model,
+        $effect.from(
+          (dispatch) => {
+            let $ = $data.prompt_drawing_name();
+            if ($ === "") {
+              return dispatch(Msg$CancelNewDrawing$const);
+            } else {
+              let new_name = $;
+              return dispatch(new ConfirmNewDrawing(new_name));
+            }
+          },
+        ),
+      ];
+    } else {
+      let n = name;
+      if (n === model.selected) {
+        return [model, $effect.none()];
+      } else {
+        let n$1 = name;
+        let drawings = upsert_source(
+          model.drawings,
+          model.selected,
+          model.source,
+        );
+        let $ = find_source(drawings, n$1);
+        if ($ instanceof Ok) {
+          let source = $[0];
+          return open_drawing(model, drawings, n$1, source);
+        } else {
+          let model$1 = new Model(
+            model.source,
+            model.code_open,
+            model.output,
+            model.shape_slider,
+            model.speed,
+            model.paused,
+            drawings,
+            model.selected,
+          );
+          save_model_library(model$1);
+          return [model$1, $effect.none()];
+        }
+      }
+    }
+  } else if (msg instanceof ConfirmNewDrawing) {
+    let name = msg[0];
+    if (name === "") {
+      return [model, $effect.none()];
+    } else {
+      let n = name;
+      let $ = find_source(model.drawings, n);
+      if ($ instanceof Ok) {
+        let source = $[0];
+        let drawings = upsert_source(
+          model.drawings,
+          model.selected,
+          model.source,
+        );
+        return open_drawing(model, drawings, n, source);
+      } else {
+        let _block;
+        let _pipe = upsert_source(model.drawings, model.selected, model.source);
+        _block = $list.append(
+          _pipe,
+          listPrepend([n, default_code], $List$Empty$const),
+        );
+        let drawings = _block;
+        return open_drawing(model, drawings, n, default_code);
+      }
+    }
+  } else if (msg instanceof CancelNewDrawing) {
+    return [model, $effect.none()];
   } else {
     return [
       new Model(
@@ -368,6 +605,8 @@ export function update(model, msg) {
         model.shape_slider,
         model.speed,
         model.paused,
+        model.drawings,
+        model.selected,
       ),
       $effect.none(),
     ];
@@ -385,89 +624,144 @@ function view_controls(model) {
   let $ = _block;
   let pause_label = $[0];
   let pause_title = $[1];
+  let _block$1;
+  let _pipe = $list.map(
+    model.drawings,
+    (drawing) => {
+      return $html.option(
+        listPrepend($attr.value(drawing[0]), $List$Empty$const),
+        drawing[0],
+      );
+    },
+  );
+  _block$1 = $list.append(
+    _pipe,
+    listPrepend(
+      $html.option(
+        listPrepend($attr.value(new_drawing_option), $List$Empty$const),
+        "New drawing…",
+      ),
+      $List$Empty$const,
+    ),
+  );
+  let drawing_options = _block$1;
   return $html.div(
     listPrepend($attr.class$("controls"), $List$Empty$const),
     listPrepend(
-      $html.div(
-        listPrepend($attr.class$("control-row"), $List$Empty$const),
+      $html.label(
+        listPrepend($attr.class$("control"), $List$Empty$const),
         listPrepend(
-          $html.button(
-            listPrepend(
-              $attr.class$("icon-btn"),
+          $html.span(
+            listPrepend($attr.class$("control-label"), $List$Empty$const),
+            listPrepend($html.text("drawing"), $List$Empty$const),
+          ),
+          listPrepend(
+            $html.select(
               listPrepend(
-                $attr.attribute("title", pause_title),
+                $attr.attribute("data-test-id", "drawing-select"),
                 listPrepend(
-                  $event.on_click(Msg$TogglePause$const),
-                  $List$Empty$const,
+                  $attr.class$("drawing-select"),
+                  listPrepend(
+                    $attr.value(model.selected),
+                    listPrepend(
+                      $event.on_change(
+                        (var0) => { return new SelectDrawing(var0); },
+                      ),
+                      $List$Empty$const,
+                    ),
+                  ),
                 ),
               ),
+              drawing_options,
             ),
-            listPrepend($html.text(pause_label), $List$Empty$const),
+            $List$Empty$const,
           ),
+        ),
+      ),
+      listPrepend(
+        $html.div(
+          listPrepend($attr.class$("control-row"), $List$Empty$const),
           listPrepend(
             $html.button(
               listPrepend(
                 $attr.class$("icon-btn"),
                 listPrepend(
-                  $attr.attribute("title", "Restart animation from the start"),
+                  $attr.attribute("title", pause_title),
                   listPrepend(
-                    $event.on_click(Msg$RestartAnimation$const),
+                    $event.on_click(Msg$TogglePause$const),
                     $List$Empty$const,
                   ),
                 ),
               ),
-              listPrepend($html.text("Restart"), $List$Empty$const),
+              listPrepend($html.text(pause_label), $List$Empty$const),
             ),
             listPrepend(
               $html.button(
                 listPrepend(
                   $attr.class$("icon-btn"),
                   listPrepend(
-                    $attr.attribute(
-                      "title",
-                      "Reset shape and speed to defaults",
-                    ),
+                    $attr.attribute("title", "Restart animation from the start"),
                     listPrepend(
-                      $event.on_click(Msg$ResetSliders$const),
+                      $event.on_click(Msg$RestartAnimation$const),
                       $List$Empty$const,
                     ),
                   ),
                 ),
-                listPrepend($html.text("Reset"), $List$Empty$const),
+                listPrepend($html.text("Restart"), $List$Empty$const),
               ),
               listPrepend(
-                $html.label(
-                  listPrepend($attr.class$("control"), $List$Empty$const),
+                $html.button(
                   listPrepend(
-                    $html.span(
+                    $attr.class$("icon-btn"),
+                    listPrepend(
+                      $attr.attribute(
+                        "title",
+                        "Reset shape and speed to defaults",
+                      ),
                       listPrepend(
-                        $attr.class$("control-label"),
+                        $event.on_click(Msg$ResetSliders$const),
                         $List$Empty$const,
                       ),
-                      listPrepend($html.text("speed"), $List$Empty$const),
                     ),
+                  ),
+                  listPrepend($html.text("Reset"), $List$Empty$const),
+                ),
+                listPrepend(
+                  $html.label(
+                    listPrepend($attr.class$("control"), $List$Empty$const),
                     listPrepend(
-                      $html.input(
+                      $html.span(
                         listPrepend(
-                          $attr.type_("range"),
+                          $attr.class$("control-label"),
+                          $List$Empty$const,
+                        ),
+                        listPrepend($html.text("speed"), $List$Empty$const),
+                      ),
+                      listPrepend(
+                        $html.input(
                           listPrepend(
-                            $attr.min("-2"),
+                            $attr.type_("range"),
                             listPrepend(
-                              $attr.max("2"),
+                              $attr.min("-2"),
                               listPrepend(
-                                $attr.step("0.1"),
+                                $attr.max("2"),
                                 listPrepend(
-                                  $attr.value($float.to_string(model.speed)),
+                                  $attr.step("0.1"),
                                   listPrepend(
-                                    $attr.attribute(
-                                      "data-test-id",
-                                      "speed-slider",
-                                    ),
+                                    $attr.value($float.to_string(model.speed)),
                                     listPrepend(
-                                      $event.on_input(
-                                        (var0) => { return new SetSpeed(var0); },
+                                      $attr.attribute(
+                                        "data-test-id",
+                                        "speed-slider",
                                       ),
-                                      $List$Empty$const,
+                                      listPrepend(
+                                        $event.on_input(
+                                          (var0) => {
+                                            return new SetSpeed(var0);
+                                          },
+                                        ),
+                                        $List$Empty$const,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -475,44 +769,44 @@ function view_controls(model) {
                             ),
                           ),
                         ),
+                        $List$Empty$const,
                       ),
-                      $List$Empty$const,
                     ),
                   ),
+                  $List$Empty$const,
                 ),
-                $List$Empty$const,
               ),
             ),
           ),
         ),
-      ),
-      listPrepend(
-        $html.label(
-          listPrepend($attr.class$("control"), $List$Empty$const),
-          listPrepend(
-            $html.span(
-              listPrepend($attr.class$("control-label"), $List$Empty$const),
-              listPrepend($html.text("shape"), $List$Empty$const),
-            ),
+        listPrepend(
+          $html.label(
+            listPrepend($attr.class$("control"), $List$Empty$const),
             listPrepend(
-              $html.input(
-                listPrepend(
-                  $attr.type_("range"),
+              $html.span(
+                listPrepend($attr.class$("control-label"), $List$Empty$const),
+                listPrepend($html.text("shape"), $List$Empty$const),
+              ),
+              listPrepend(
+                $html.input(
                   listPrepend(
-                    $attr.min("0"),
+                    $attr.type_("range"),
                     listPrepend(
-                      $attr.max("100"),
+                      $attr.min("0"),
                       listPrepend(
-                        $attr.step("1"),
+                        $attr.max("100"),
                         listPrepend(
-                          $attr.value($int.to_string(model.shape_slider)),
+                          $attr.step("1"),
                           listPrepend(
-                            $attr.attribute("data-test-id", "shape-slider"),
+                            $attr.value($int.to_string(model.shape_slider)),
                             listPrepend(
-                              $event.on_input(
-                                (var0) => { return new SetShapeSlider(var0); },
+                              $attr.attribute("data-test-id", "shape-slider"),
+                              listPrepend(
+                                $event.on_input(
+                                  (var0) => { return new SetShapeSlider(var0); },
+                                ),
+                                $List$Empty$const,
                               ),
-                              $List$Empty$const,
                             ),
                           ),
                         ),
@@ -520,12 +814,12 @@ function view_controls(model) {
                     ),
                   ),
                 ),
+                $List$Empty$const,
               ),
-              $List$Empty$const,
             ),
           ),
+          $List$Empty$const,
         ),
-        $List$Empty$const,
       ),
     ),
   );
@@ -612,15 +906,15 @@ export function main() {
       "let_assert",
       FILEPATH,
       "app",
-      336,
+      490,
       "main",
       "Pattern match failed, no pattern matched the value.",
       {
         value: $,
-        start: 10626,
-        end: 10675,
-        pattern_start: 10637,
-        pattern_end: 10642
+        start: 15228,
+        end: 15277,
+        pattern_start: 15239,
+        pattern_end: 15244
       }
     )
   }

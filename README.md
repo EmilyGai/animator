@@ -25,3 +25,25 @@ sliders are in canvas part of animator.css
 shape_slider - reruns draw and calls set_drawing without reset_clock, dragging keeps clock time  
 speed - calls render.set_speed  
 ->moving the speed slider while paused updates stored rate but only executes when press play  
+
+
+
+Q11
+
+
+1. menu of starting examples:  
+<select data-test-id="drawing-select"> options from examples.all (name + source)  
+init: data.load_library(); if localStorage empty/invalid, use examples.all  
+picking a name -> editor.mount(source, SetCode) + SetCode; broken code shows error and set_drawing([])  
+
+
+2. saving and loading code changes:  
+one key animator-library in data.gleam via storage_get/storage_set  
+JSON stores selected + drawings; each source is plain typed text  
+SetCode upserts current drawing source and save_library; reload keeps same drawing open  
+
+
+3. adding new drawings:  
+"New drawing…" option value must be "" (Gradescope treats any other value as a drawing)  
+prompt_drawing_name(); "" means cancel -> CancelNewDrawing re-renders select  
+ConfirmNewDrawing appends #(name, default_code), saves, mounts that source  
