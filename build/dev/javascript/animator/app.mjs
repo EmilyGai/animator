@@ -624,144 +624,89 @@ function view_controls(model) {
   let $ = _block;
   let pause_label = $[0];
   let pause_title = $[1];
-  let _block$1;
-  let _pipe = $list.map(
-    model.drawings,
-    (drawing) => {
-      return $html.option(
-        listPrepend($attr.value(drawing[0]), $List$Empty$const),
-        drawing[0],
-      );
-    },
-  );
-  _block$1 = $list.append(
-    _pipe,
-    listPrepend(
-      $html.option(
-        listPrepend($attr.value(new_drawing_option), $List$Empty$const),
-        "New drawing…",
-      ),
-      $List$Empty$const,
-    ),
-  );
-  let drawing_options = _block$1;
   return $html.div(
     listPrepend($attr.class$("controls"), $List$Empty$const),
     listPrepend(
-      $html.label(
-        listPrepend($attr.class$("control"), $List$Empty$const),
+      $html.div(
+        listPrepend($attr.class$("control-row"), $List$Empty$const),
         listPrepend(
-          $html.span(
-            listPrepend($attr.class$("control-label"), $List$Empty$const),
-            listPrepend($html.text("drawing"), $List$Empty$const),
-          ),
-          listPrepend(
-            $html.select(
+          $html.button(
+            listPrepend(
+              $attr.class$("icon-btn"),
               listPrepend(
-                $attr.attribute("data-test-id", "drawing-select"),
+                $attr.attribute("title", pause_title),
                 listPrepend(
-                  $attr.class$("drawing-select"),
-                  listPrepend(
-                    $attr.value(model.selected),
-                    listPrepend(
-                      $event.on_change(
-                        (var0) => { return new SelectDrawing(var0); },
-                      ),
-                      $List$Empty$const,
-                    ),
-                  ),
+                  $event.on_click(Msg$TogglePause$const),
+                  $List$Empty$const,
                 ),
               ),
-              drawing_options,
             ),
-            $List$Empty$const,
+            listPrepend($html.text(pause_label), $List$Empty$const),
           ),
-        ),
-      ),
-      listPrepend(
-        $html.div(
-          listPrepend($attr.class$("control-row"), $List$Empty$const),
           listPrepend(
             $html.button(
               listPrepend(
                 $attr.class$("icon-btn"),
                 listPrepend(
-                  $attr.attribute("title", pause_title),
+                  $attr.attribute("title", "Restart animation from the start"),
                   listPrepend(
-                    $event.on_click(Msg$TogglePause$const),
+                    $event.on_click(Msg$RestartAnimation$const),
                     $List$Empty$const,
                   ),
                 ),
               ),
-              listPrepend($html.text(pause_label), $List$Empty$const),
+              listPrepend($html.text("Restart"), $List$Empty$const),
             ),
             listPrepend(
               $html.button(
                 listPrepend(
                   $attr.class$("icon-btn"),
                   listPrepend(
-                    $attr.attribute("title", "Restart animation from the start"),
+                    $attr.attribute(
+                      "title",
+                      "Reset shape and speed to defaults",
+                    ),
                     listPrepend(
-                      $event.on_click(Msg$RestartAnimation$const),
+                      $event.on_click(Msg$ResetSliders$const),
                       $List$Empty$const,
                     ),
                   ),
                 ),
-                listPrepend($html.text("Restart"), $List$Empty$const),
+                listPrepend($html.text("Reset"), $List$Empty$const),
               ),
               listPrepend(
-                $html.button(
+                $html.label(
+                  listPrepend($attr.class$("control"), $List$Empty$const),
                   listPrepend(
-                    $attr.class$("icon-btn"),
-                    listPrepend(
-                      $attr.attribute(
-                        "title",
-                        "Reset shape and speed to defaults",
-                      ),
+                    $html.span(
                       listPrepend(
-                        $event.on_click(Msg$ResetSliders$const),
+                        $attr.class$("control-label"),
                         $List$Empty$const,
                       ),
+                      listPrepend($html.text("speed"), $List$Empty$const),
                     ),
-                  ),
-                  listPrepend($html.text("Reset"), $List$Empty$const),
-                ),
-                listPrepend(
-                  $html.label(
-                    listPrepend($attr.class$("control"), $List$Empty$const),
                     listPrepend(
-                      $html.span(
+                      $html.input(
                         listPrepend(
-                          $attr.class$("control-label"),
-                          $List$Empty$const,
-                        ),
-                        listPrepend($html.text("speed"), $List$Empty$const),
-                      ),
-                      listPrepend(
-                        $html.input(
+                          $attr.type_("range"),
                           listPrepend(
-                            $attr.type_("range"),
+                            $attr.min("-2"),
                             listPrepend(
-                              $attr.min("-2"),
+                              $attr.max("2"),
                               listPrepend(
-                                $attr.max("2"),
+                                $attr.step("0.1"),
                                 listPrepend(
-                                  $attr.step("0.1"),
+                                  $attr.value($float.to_string(model.speed)),
                                   listPrepend(
-                                    $attr.value($float.to_string(model.speed)),
+                                    $attr.attribute(
+                                      "data-test-id",
+                                      "speed-slider",
+                                    ),
                                     listPrepend(
-                                      $attr.attribute(
-                                        "data-test-id",
-                                        "speed-slider",
+                                      $event.on_input(
+                                        (var0) => { return new SetSpeed(var0); },
                                       ),
-                                      listPrepend(
-                                        $event.on_input(
-                                          (var0) => {
-                                            return new SetSpeed(var0);
-                                          },
-                                        ),
-                                        $List$Empty$const,
-                                      ),
+                                      $List$Empty$const,
                                     ),
                                   ),
                                 ),
@@ -769,48 +714,8 @@ function view_controls(model) {
                             ),
                           ),
                         ),
-                        $List$Empty$const,
                       ),
-                    ),
-                  ),
-                  $List$Empty$const,
-                ),
-              ),
-            ),
-          ),
-        ),
-        listPrepend(
-          $html.label(
-            listPrepend($attr.class$("control"), $List$Empty$const),
-            listPrepend(
-              $html.span(
-                listPrepend($attr.class$("control-label"), $List$Empty$const),
-                listPrepend($html.text("shape"), $List$Empty$const),
-              ),
-              listPrepend(
-                $html.input(
-                  listPrepend(
-                    $attr.type_("range"),
-                    listPrepend(
-                      $attr.min("0"),
-                      listPrepend(
-                        $attr.max("100"),
-                        listPrepend(
-                          $attr.step("1"),
-                          listPrepend(
-                            $attr.value($int.to_string(model.shape_slider)),
-                            listPrepend(
-                              $attr.attribute("data-test-id", "shape-slider"),
-                              listPrepend(
-                                $event.on_input(
-                                  (var0) => { return new SetShapeSlider(var0); },
-                                ),
-                                $List$Empty$const,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      $List$Empty$const,
                     ),
                   ),
                 ),
@@ -818,8 +723,48 @@ function view_controls(model) {
               ),
             ),
           ),
-          $List$Empty$const,
         ),
+      ),
+      listPrepend(
+        $html.label(
+          listPrepend($attr.class$("control"), $List$Empty$const),
+          listPrepend(
+            $html.span(
+              listPrepend($attr.class$("control-label"), $List$Empty$const),
+              listPrepend($html.text("shape"), $List$Empty$const),
+            ),
+            listPrepend(
+              $html.input(
+                listPrepend(
+                  $attr.type_("range"),
+                  listPrepend(
+                    $attr.min("0"),
+                    listPrepend(
+                      $attr.max("100"),
+                      listPrepend(
+                        $attr.step("1"),
+                        listPrepend(
+                          $attr.value($int.to_string(model.shape_slider)),
+                          listPrepend(
+                            $attr.attribute("data-test-id", "shape-slider"),
+                            listPrepend(
+                              $event.on_input(
+                                (var0) => { return new SetShapeSlider(var0); },
+                              ),
+                              $List$Empty$const,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              $List$Empty$const,
+            ),
+          ),
+        ),
+        $List$Empty$const,
       ),
     ),
   );
@@ -877,6 +822,66 @@ function view_anim(model) {
   );
 }
 
+/**
+ * Drawing library menu for the code-panel header (next to "draw code").
+ * Mark the open drawing with option `selected`. Setting `value` on <select>
+ * alone is applied before the options exist, so the browser keeps the first
+ * option (usually "fan") after a reload even when localStorage is correct.
+ * 
+ * @ignore
+ */
+function view_drawing_select(model) {
+  let _block;
+  let _pipe = $list.map(
+    model.drawings,
+    (drawing) => {
+      return $html.option(
+        listPrepend(
+          $attr.value(drawing[0]),
+          listPrepend(
+            $attr.selected(drawing[0] === model.selected),
+            $List$Empty$const,
+          ),
+        ),
+        drawing[0],
+      );
+    },
+  );
+  _block = $list.append(
+    _pipe,
+    listPrepend(
+      $html.option(
+        listPrepend(
+          $attr.value(new_drawing_option),
+          listPrepend($attr.selected(false), $List$Empty$const),
+        ),
+        "New drawing…",
+      ),
+      $List$Empty$const,
+    ),
+  );
+  let drawing_options = _block;
+  return $html.select(
+    listPrepend(
+      $attr.attribute("data-test-id", "drawing-select"),
+      listPrepend(
+        $attr.class$("drawing-select"),
+        listPrepend(
+          $attr.value(model.selected),
+          listPrepend(
+            $attr.attribute("title", "Choose a drawing"),
+            listPrepend(
+              $event.on_change((var0) => { return new SelectDrawing(var0); }),
+              $List$Empty$const,
+            ),
+          ),
+        ),
+      ),
+    ),
+    drawing_options,
+  );
+}
+
 export function view(model) {
   let _block;
   let $ = model.code_open;
@@ -891,7 +896,10 @@ export function view(model) {
     listPrepend(
       $html.div(
         listPrepend($attr.class$("code-col"), $List$Empty$const),
-        listPrepend($editor.view_panel(Msg$ToggleCode$const), $List$Empty$const),
+        listPrepend(
+          $editor.view_panel(Msg$ToggleCode$const, view_drawing_select(model)),
+          $List$Empty$const,
+        ),
       ),
       listPrepend(view_anim(model), $List$Empty$const),
     ),
@@ -906,15 +914,15 @@ export function main() {
       "let_assert",
       FILEPATH,
       "app",
-      490,
+      504,
       "main",
       "Pattern match failed, no pattern matched the value.",
       {
         value: $,
-        start: 15228,
-        end: 15277,
-        pattern_start: 15239,
-        pattern_end: 15244
+        start: 15660,
+        end: 15709,
+        pattern_start: 15671,
+        pattern_end: 15676
       }
     )
   }

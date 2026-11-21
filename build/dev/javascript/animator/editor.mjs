@@ -198,9 +198,10 @@ function view_reference_panel() {
 /**
  * The code panel that sits beside the drawing: the live editor and a reference
  * of the built-in inputs and functions. The latest code that runs is rendered
- * continuously, so there is no explicit apply step.
+ * continuously, so there is no explicit apply step. `drawing_select` sits in
+ * the header next to the "draw code" title (the library menu from the app).
  */
-export function view_panel(on_collapse) {
+export function view_panel(on_collapse, drawing_select) {
   return $html.div(
     listPrepend($attr.class$("code-panel"), $List$Empty$const),
     listPrepend(
@@ -212,17 +213,20 @@ export function view_panel(on_collapse) {
             listPrepend($html.text("draw code"), $List$Empty$const),
           ),
           listPrepend(
-            $html.button(
-              listPrepend(
-                $attr.class$("icon-btn"),
+            drawing_select,
+            listPrepend(
+              $html.button(
                 listPrepend(
-                  $attr.attribute("title", "Hide code"),
-                  listPrepend($event.on_click(on_collapse), $List$Empty$const),
+                  $attr.class$("icon-btn"),
+                  listPrepend(
+                    $attr.attribute("title", "Hide code"),
+                    listPrepend($event.on_click(on_collapse), $List$Empty$const),
+                  ),
                 ),
+                listPrepend($html.text("⟨"), $List$Empty$const),
               ),
-              listPrepend($html.text("⟨"), $List$Empty$const),
+              $List$Empty$const,
             ),
-            $List$Empty$const,
           ),
         ),
       ),

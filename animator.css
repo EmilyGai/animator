@@ -59,7 +59,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .code-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
   background: #1a1a3e;
@@ -70,6 +69,16 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
   font-family: 'Georgia', serif;
   font-size: 16px;
   letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.code-header .drawing-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+}
+.code-header .icon-btn {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Wrapper holding the editor. */
@@ -230,9 +239,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
   accent-color: #8a8aca;
 }
 .drawing-select {
-  flex: 1;
-  min-width: 0;
-  background: #1a1a3e;
+  background: #12122a;
   color: #d4c5a0;
   border: 1px solid #4a4a8a;
   border-radius: 4px;

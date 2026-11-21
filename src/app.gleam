@@ -369,7 +369,7 @@ pub fn view(model: Model) -> Element(Msg) {
   // mounted CodeMirror editor keeps its state across show/hide.
   html.div([attr.class(app_class)], [
     html.div([attr.class("code-col")], [
-      editor.view_panel(ToggleCode),
+      editor.view_panel(ToggleCode, view_drawing_select(model)),
     ]),
     view_anim(model),
   ])
@@ -387,31 +387,45 @@ fn view_anim(model: Model) -> Element(Msg) {
   ])
 }
 
+/// Drawing library menu for the code-panel header (next to "draw code").
+/// Mark the open drawing with option `selected`. Setting `value` on <select>
+/// alone is applied before the options exist, so the browser keeps the first
+/// option (usually "fan") after a reload even when localStorage is correct.
+fn view_drawing_select(model: Model) -> Element(Msg) {
+  let drawing_options =
+    list.map(model.drawings, fn(drawing) {
+      html.option(
+        [
+          attr.value(drawing.0),
+          attr.selected(drawing.0 == model.selected),
+        ],
+        drawing.0,
+      )
+    })
+    |> list.append([
+      html.option(
+        [attr.value(new_drawing_option), attr.selected(False)],
+        "New drawing…",
+      ),
+    ])
+  html.select(
+    [
+      attr.attribute("data-test-id", "drawing-select"),
+      attr.class("drawing-select"),
+      attr.value(model.selected),
+      attr.attribute("title", "Choose a drawing"),
+      event.on_change(SelectDrawing),
+    ],
+    drawing_options,
+  )
+}
+
 fn view_controls(model: Model) -> Element(Msg) {
   let #(pause_label, pause_title) = case model.paused {
     True -> #("Play", "Resume animation")
     False -> #("Pause", "Pause animation")
   }
-  let drawing_options =
-    list.map(model.drawings, fn(drawing) {
-      html.option([attr.value(drawing.0)], drawing.0)
-    })
-    |> list.append([
-      html.option([attr.value(new_drawing_option)], "New drawing…"),
-    ])
   html.div([attr.class("controls")], [
-    html.label([attr.class("control")], [
-      html.span([attr.class("control-label")], [html.text("drawing")]),
-      html.select(
-        [
-          attr.attribute("data-test-id", "drawing-select"),
-          attr.class("drawing-select"),
-          attr.value(model.selected),
-          event.on_change(SelectDrawing),
-        ],
-        drawing_options,
-      ),
-    ]),
     html.div([attr.class("control-row")], [
       html.button(
         [
