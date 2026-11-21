@@ -239,6 +239,28 @@ function push_drawing(paths) {
   );
 }
 
+/**
+ * Parse a range-input value as a Float. HTML often yields integers like "2"
+ * or "-2" at the ends; Gleam's float.parse only accepts a decimal point, so
+ * fall back to int.parse for those.
+ * 
+ * @ignore
+ */
+function parse_speed(raw) {
+  let $ = $float.parse(raw);
+  if ($ instanceof Ok) {
+    return $;
+  } else {
+    let $1 = $int.parse(raw);
+    if ($1 instanceof Ok) {
+      let n = $1[0];
+      return new Ok($int.to_float(n));
+    } else {
+      return new Error(undefined);
+    }
+  }
+}
+
 export function update(model, msg) {
   if (msg instanceof SetCode) {
     let text = msg[0];
@@ -265,7 +287,7 @@ export function update(model, msg) {
   } else if (msg instanceof SetSpeed) {
     let raw = msg[0];
     let _block;
-    let _pipe = $float.parse(raw);
+    let _pipe = parse_speed(raw);
     _block = $result.unwrap(_pipe, model.speed);
     let speed = _block;
     let model$1 = new Model(
@@ -590,15 +612,15 @@ export function main() {
       "let_assert",
       FILEPATH,
       "app",
-      322,
+      336,
       "main",
       "Pattern match failed, no pattern matched the value.",
       {
         value: $,
-        start: 10208,
-        end: 10257,
-        pattern_start: 10219,
-        pattern_end: 10224
+        start: 10626,
+        end: 10675,
+        pattern_start: 10637,
+        pattern_end: 10642
       }
     )
   }

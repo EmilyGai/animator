@@ -151,7 +151,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
 
     SetSpeed(raw) -> {
-      let speed = float.parse(raw) |> result.unwrap(model.speed)
+      let speed = parse_speed(raw) |> result.unwrap(model.speed)
       let model = Model(..model, speed: speed)
       case model.paused {
         // Keep the clock frozen while paused; the new rate applies on resume.
@@ -204,6 +204,20 @@ fn reset_clock() -> Effect(Msg) {
 
 fn set_speed(rate: Float) -> Effect(Msg) {
   effect.from(fn(_dispatch) { render.set_speed(rate) })
+}
+
+/// Parse a range-input value as a Float. HTML often yields integers like "2"
+/// or "-2" at the ends; Gleam's float.parse only accepts a decimal point, so
+/// fall back to int.parse for those.
+fn parse_speed(raw: String) -> Result(Float, Nil) {
+  case float.parse(raw) {
+    Ok(n) -> Ok(n)
+    Error(_) ->
+      case int.parse(raw) {
+        Ok(n) -> Ok(int.to_float(n))
+        Error(_) -> Error(Nil)
+      }
+  }
 }
 
 // ── View ──────────────────────────────────────────────────────────────────
