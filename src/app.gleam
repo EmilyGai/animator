@@ -462,6 +462,9 @@ fn view_controls(model: Model) -> Element(Msg) {
           attr.attribute("data-test-id", "speed-slider"),
           event.on_input(SetSpeed),
         ]),
+        html.span([attr.class("control-value")], [
+          html.text(float.to_string(float.to_precision(model.speed, 1))),
+        ]),
       ]),
     ]),
     html.label([attr.class("control")], [
@@ -474,6 +477,9 @@ fn view_controls(model: Model) -> Element(Msg) {
         attr.value(int.to_string(model.shape_slider)),
         attr.attribute("data-test-id", "shape-slider"),
         event.on_input(SetShapeSlider),
+      ]),
+      html.span([attr.class("control-value")], [
+        html.text(int.to_string(model.shape_slider)),
       ]),
     ]),
   ])

@@ -715,7 +715,23 @@ function view_controls(model) {
                           ),
                         ),
                       ),
-                      $List$Empty$const,
+                      listPrepend(
+                        $html.span(
+                          listPrepend(
+                            $attr.class$("control-value"),
+                            $List$Empty$const,
+                          ),
+                          listPrepend(
+                            $html.text(
+                              $float.to_string(
+                                $float.to_precision(model.speed, 1),
+                              ),
+                            ),
+                            $List$Empty$const,
+                          ),
+                        ),
+                        $List$Empty$const,
+                      ),
                     ),
                   ),
                 ),
@@ -760,7 +776,16 @@ function view_controls(model) {
                   ),
                 ),
               ),
-              $List$Empty$const,
+              listPrepend(
+                $html.span(
+                  listPrepend($attr.class$("control-value"), $List$Empty$const),
+                  listPrepend(
+                    $html.text($int.to_string(model.shape_slider)),
+                    $List$Empty$const,
+                  ),
+                ),
+                $List$Empty$const,
+              ),
             ),
           ),
         ),
@@ -914,15 +939,15 @@ export function main() {
       "let_assert",
       FILEPATH,
       "app",
-      504,
+      510,
       "main",
       "Pattern match failed, no pattern matched the value.",
       {
         value: $,
-        start: 15660,
-        end: 15709,
-        pattern_start: 15671,
-        pattern_end: 15676
+        start: 15910,
+        end: 15959,
+        pattern_start: 15921,
+        pattern_end: 15926
       }
     )
   }
