@@ -1,6 +1,10 @@
 //# sourceMappingURL=errors.mjs.map
 import * as $int from "../gleam_stdlib/gleam/int.mjs";
-import { CustomType as $CustomType } from "./gleam.mjs";
+import * as $list from "../gleam_stdlib/gleam/list.mjs";
+import * as $option from "../gleam_stdlib/gleam/option.mjs";
+import { Some, from_result, Option$None$const } from "../gleam_stdlib/gleam/option.mjs";
+import * as $string from "../gleam_stdlib/gleam/string.mjs";
+import { Ok, Empty as $Empty, CustomType as $CustomType } from "./gleam.mjs";
 
 export class UnboundVariable extends $CustomType {
   constructor(name) {
@@ -156,5 +160,46 @@ export function error_message(error) {
     let error$1 = error.error;
     let line = error.line;
     return error_message(error$1) + on_line(line);
+  }
+}
+
+/**
+ * The source line of an evaluation error, if known.
+ */
+export function error_line(error) {
+  if (error instanceof OnLine) {
+    let line = error.line;
+    return new Some(line);
+  } else {
+    return Option$None$const;
+  }
+}
+
+/**
+ * The source line embedded at the end of a message (`… on line N`), if any.
+ * Parse errors and stringified eval errors both use that suffix.
+ */
+export function line_from_message(message) {
+  let $ = $string.split(message, " on line ");
+  if ($ instanceof $Empty) {
+    let parts = $;
+    let $1 = $list.last(parts);
+    if ($1 instanceof Ok) {
+      let line_str = $1[0];
+      return from_result($int.parse(line_str));
+    } else {
+      return Option$None$const;
+    }
+  } else if ($.tail instanceof $Empty) {
+    return Option$None$const;
+  } else {
+    let parts = $;
+    let $1 = $list.last(parts);
+    if ($1 instanceof Ok) {
+      let line_str = $1[0];
+      return from_result($int.parse(line_str));
+    } else {
+      return Option$None$const;
+    }
   }
 }

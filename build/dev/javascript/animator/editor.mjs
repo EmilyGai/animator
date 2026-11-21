@@ -5,7 +5,11 @@ import * as $effect from "../lustre/lustre/effect.mjs";
 import * as $element from "../lustre/lustre/element.mjs";
 import * as $html from "../lustre/lustre/element/html.mjs";
 import * as $event from "../lustre/lustre/event.mjs";
-import { mountEditor as do_mount } from "./editor_ffi.mjs";
+import {
+  mountEditor as do_mount,
+  setEditorError as do_set_error,
+  clearEditorError as do_clear_error,
+} from "./editor_ffi.mjs";
 import {
   List$Empty$const as $List$Empty$const,
   prepend as listPrepend,
@@ -33,6 +37,20 @@ export function mount(text, on_change) {
       return do_mount(text, (t) => { return dispatch(on_change(t)); });
     },
   );
+}
+
+/**
+ * Underline the given 1-based source line in red and associate `message` with it.
+ */
+export function set_error(line, message) {
+  return $effect.from((_) => { return do_set_error(line, message); });
+}
+
+/**
+ * Clear any error underline in the editor.
+ */
+export function clear_error() {
+  return $effect.from((_) => { return do_clear_error(); });
 }
 
 function list_functions() {

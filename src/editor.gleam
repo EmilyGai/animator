@@ -23,6 +23,22 @@ pub fn mount(text: String, on_change: fn(String) -> msg) -> Effect(msg) {
   effect.from(fn(dispatch) { do_mount(text, fn(t) { dispatch(on_change(t)) }) })
 }
 
+@external(javascript, "./editor_ffi.mjs", "setEditorError")
+fn do_set_error(line: Int, message: String) -> Nil
+
+@external(javascript, "./editor_ffi.mjs", "clearEditorError")
+fn do_clear_error() -> Nil
+
+/// Underline the given 1-based source line in red and associate `message` with it.
+pub fn set_error(line: Int, message: String) -> Effect(msg) {
+  effect.from(fn(_dispatch) { do_set_error(line, message) })
+}
+
+/// Clear any error underline in the editor.
+pub fn clear_error() -> Effect(msg) {
+  effect.from(fn(_dispatch) { do_clear_error() })
+}
+
 // ── View ──────────────────────────────────────────────────────────────────────
 
 /// The code panel that sits beside the drawing: the live editor and a reference

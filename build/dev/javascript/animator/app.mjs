@@ -1,6 +1,7 @@
 //# sourceMappingURL=app.mjs.map
-import * as $result from "../gleam_stdlib/gleam/result.mjs";
-import * as $string from "../gleam_stdlib/gleam/string.mjs";
+import * as $list from "../gleam_stdlib/gleam/list.mjs";
+import * as $option from "../gleam_stdlib/gleam/option.mjs";
+import { None, Some } from "../gleam_stdlib/gleam/option.mjs";
 import * as $lustre from "../lustre/lustre.mjs";
 import * as $attr from "../lustre/lustre/attribute.mjs";
 import * as $effect from "../lustre/lustre/effect.mjs";
@@ -13,12 +14,14 @@ import * as $editor from "./editor.mjs";
 import * as $errors from "./errors.mjs";
 import {
   Ok,
+  Error,
   List$Empty$const as $List$Empty$const,
   prepend as listPrepend,
   CustomType as $CustomType,
   makeError,
 } from "./gleam.mjs";
 import * as $parser from "./parser.mjs";
+import * as $render from "./render.mjs";
 import * as $shape from "./shape.mjs";
 
 const FILEPATH = "src/app.gleam";
@@ -57,6 +60,8 @@ export const Msg$ToggleCode = () => Msg$ToggleCode$const;
 export const Msg$isToggleCode = (value) => value instanceof ToggleCode;
 
 const default_code = "fn draw(shape_slider: Int) -> List(Path) {\n  [Path(Line(Point(0, 0), Point(100, 100)), 0, 10, 2)]\n}\n";
+
+const path_color = "#d4c5a0";
 
 /**
  * Your app's public address, once you've deployed it in Problem 13, such as
@@ -100,11 +105,37 @@ function run_source(shape_slider, source) {
   let $ = $parser.parse_program(source, $builtins.global_frame());
   if ($ instanceof Ok) {
     let program = $[0];
-    let _pipe = $drawing.try_draw(shape_slider, program);
-    return $result.map_error(_pipe, $errors.error_message);
+    let $1 = $drawing.try_draw(shape_slider, program);
+    if ($1 instanceof Ok) {
+      return $1;
+    } else {
+      let err = $1[0];
+      return new Error([$errors.error_message(err), $errors.error_line(err)]);
+    }
   } else {
-    return $;
+    let msg = $[0];
+    return new Error([msg, $errors.line_from_message(msg)]);
   }
+}
+
+/**
+ * Convert evaluated paths to RenderPaths, push them to the canvas, and restart
+ * the animation from the beginning at normal speed.
+ * 
+ * @ignore
+ */
+function animate_drawing(paths) {
+  return $effect.from(
+    (_) => {
+      let rendered = $list.map(
+        paths,
+        (path) => { return $render.render_path(path, path_color); },
+      );
+      $render.set_drawing(rendered);
+      $render.set_speed(1.0);
+      return $render.reset_clock();
+    },
+  );
 }
 
 export function update(model, msg) {
@@ -114,12 +145,28 @@ export function update(model, msg) {
     if ($ instanceof Ok) {
       let paths = $[0];
       return [
-        new Model(text, model.code_open, $string.inspect(paths)),
-        $effect.none(),
+        new Model(text, model.code_open, ""),
+        $effect.batch(
+          listPrepend(
+            animate_drawing(paths),
+            listPrepend($editor.clear_error(), $List$Empty$const),
+          ),
+        ),
       ];
     } else {
-      let msg$1 = $[0];
-      return [new Model(text, model.code_open, msg$1), $effect.none()];
+      let msg$1 = $[0][0];
+      let line = $[0][1];
+      return [
+        new Model(text, model.code_open, msg$1),
+        (() => {
+          if (line instanceof Some) {
+            let n = line[0];
+            return $editor.set_error(n, msg$1);
+          } else {
+            return $editor.clear_error();
+          }
+        })(),
+      ];
     }
   } else {
     return [
@@ -153,11 +200,26 @@ function view_anim(model) {
     listPrepend(
       view_reveal_code(model),
       listPrepend(
-        $html.pre(
-          listPrepend($attr.class$("output"), $List$Empty$const),
-          listPrepend($html.text(model.output), $List$Empty$const),
+        $html.canvas(
+          listPrepend(
+            $attr.id("animation-canvas"),
+            listPrepend($attr.class$("canvas"), $List$Empty$const),
+          ),
         ),
-        $List$Empty$const,
+        listPrepend(
+          (() => {
+            let $ = model.output;
+            if ($ === "") {
+              return $element.none();
+            } else {
+              return $html.pre(
+                listPrepend($attr.class$("output"), $List$Empty$const),
+                listPrepend($html.text(model.output), $List$Empty$const),
+              );
+            }
+          })(),
+          $List$Empty$const,
+        ),
       ),
     ),
   );
@@ -192,15 +254,15 @@ export function main() {
       "let_assert",
       FILEPATH,
       "app",
-      149,
+      176,
       "main",
       "Pattern match failed, no pattern matched the value.",
       {
         value: $,
-        start: 5262,
-        end: 5311,
-        pattern_start: 5273,
-        pattern_end: 5278
+        start: 6131,
+        end: 6180,
+        pattern_start: 6142,
+        pattern_end: 6147
       }
     )
   }

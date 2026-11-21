@@ -4,8 +4,8 @@ import builtins
 import drawing
 import editor
 import errors
-import gleam/result
-import gleam/string
+import gleam/list
+import gleam/option.{type Option, None, Some}
 import lustre
 import lustre/attribute as attr
 import lustre/effect.{type Effect}
@@ -13,6 +13,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import parser
+import render
 import shape.{type Path}
 
 /// Your app's public address, once you've deployed it in Problem 13, such as
@@ -63,14 +64,19 @@ pub fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
 }
 
 // Parse and evaluate a draw function at the given shape-slider value, returning
-// the rendered paths on success, or a human-readable message on failure.
-fn run_source(shape_slider: Int, source: String) -> Result(List(Path), String) {
+// the paths on success, or the error message and optional source line on failure.
+fn run_source(
+  shape_slider: Int,
+  source: String,
+) -> Result(List(Path), #(String, Option(Int))) {
   case parser.parse_program(source, builtins.global_frame()) {
-    Error(msg) -> Error(msg)
+    Error(msg) -> Error(#(msg, errors.line_from_message(msg)))
     Ok(program) ->
-      drawing.try_draw(shape_slider, program)
-      // Convert Error(EvalError) to Error(String) with a useful error message.
-      |> result.map_error(errors.error_message)
+      case drawing.try_draw(shape_slider, program) {
+        Ok(paths) -> Ok(paths)
+        Error(err) ->
+          Error(#(errors.error_message(err), errors.error_line(err)))
+      }
   }
 }
 
@@ -80,21 +86,38 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     ToggleCode -> #(Model(..model, code_open: !model.code_open), effect.none())
 
-    // After each keystroke in the editor, evaluate user code and report errors.
+    // After each keystroke in the editor, evaluate user code and animate it.
     SetCode(text) ->
       case run_source(10, text) {
-        // Parsed and evaluated: show the result.
+        // Parsed and evaluated: draw the paths and clear any error underline.
         Ok(paths) -> #(
-          Model(..model, output: string.inspect(paths), source: text),
-          effect.none(),
+          Model(..model, output: "", source: text),
+          effect.batch([animate_drawing(paths), editor.clear_error()]),
         )
-        // Broken (parse or evaluation): show the error.
-        Error(msg) -> #(
+        // Broken (parse or evaluation): show the message and underline the line.
+        Error(#(msg, line)) -> #(
           Model(..model, output: msg, source: text),
-          effect.none(),
+          case line {
+            Some(n) -> editor.set_error(n, msg)
+            None -> editor.clear_error()
+          },
         )
       }
   }
+}
+
+const path_color = "#d4c5a0"
+
+/// Convert evaluated paths to RenderPaths, push them to the canvas, and restart
+/// the animation from the beginning at normal speed.
+fn animate_drawing(paths: List(Path)) -> Effect(Msg) {
+  effect.from(fn(_dispatch) {
+    let rendered =
+      list.map(paths, fn(path) { render.render_path(path, path_color) })
+    render.set_drawing(rendered)
+    render.set_speed(1.0)
+    render.reset_clock()
+  })
 }
 
 // ── View ──────────────────────────────────────────────────────────────────
@@ -120,7 +143,11 @@ pub fn view(model: Model) -> Element(Msg) {
 fn view_anim(model: Model) -> Element(Msg) {
   html.div([attr.class("canvas-area")], [
     view_reveal_code(model),
-    html.pre([attr.class("output")], [html.text(model.output)]),
+    html.canvas([attr.id("animation-canvas"), attr.class("canvas")]),
+    case model.output {
+      "" -> element.none()
+      _ -> html.pre([attr.class("output")], [html.text(model.output)])
+    },
   ])
 }
 

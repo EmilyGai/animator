@@ -5,6 +5,9 @@
 //// can never crash the app.
 
 import gleam/int
+import gleam/list
+import gleam/option.{type Option, None, Some, from_result}
+import gleam/string
 
 pub type EvalError {
   // A name that isn't bound.
@@ -65,4 +68,25 @@ pub fn error_message(error: EvalError) -> String {
 /// parser ends its own errors this way too.
 pub fn on_line(line: Int) -> String {
   " on line " <> int.to_string(line)
+}
+
+/// The source line of an evaluation error, if known.
+pub fn error_line(error: EvalError) -> Option(Int) {
+  case error {
+    OnLine(_, line) -> Some(line)
+    _ -> None
+  }
+}
+
+/// The source line embedded at the end of a message (`… on line N`), if any.
+/// Parse errors and stringified eval errors both use that suffix.
+pub fn line_from_message(message: String) -> Option(Int) {
+  case string.split(message, " on line ") {
+    [_] -> None
+    parts ->
+      case list.last(parts) {
+        Ok(line_str) -> from_result(int.parse(line_str))
+        Error(_) -> None
+      }
+  }
 }

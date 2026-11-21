@@ -16,6 +16,10 @@ let cmView = null; // the live EditorView, or null when no editor is mounted
 let cmOnChange = null; // Gleam callback: receives the document text on every edit
 let cmModulePromise = null; // cached import of the CodeMirror bundle
 let cmObserver = null; // watches the page for a replaced mount node (see reattachEditor)
+// Desired error underline: a 1-based line number, or null for none. Kept so a
+// set/clear that races the CDN load still applies once the editor exists.
+let pendingErrorLine = null;
+let cmSetErrorLine = null; // (line|null) => void, filled when CodeMirror loads
 
 // Lezer highlight-tag → token-name mapping for our hand-written Gleam tokenizer.
 // (The grammar itself is small enough that a StreamLanguage tokenizer is simpler
@@ -81,6 +85,12 @@ function loadCodeMirror() {
         },
         ".cm-scroller": { overflow: "auto" },
         "&.cm-focused": { outline: "1px solid #6a6aaa" },
+        ".cm-errorUnderline": {
+          textDecoration: "underline wavy #f44747",
+        },
+        ".cm-errorLine": {
+          backgroundColor: "rgba(244, 71, 71, 0.12)",
+        },
       },
       { dark: true },
     );
@@ -95,6 +105,45 @@ function loadCodeMirror() {
       { tag: t.operator, color: "#89ddff" },
     ]);
     const gleam = defineGleam(language.StreamLanguage);
+
+    // Red wavy underline + tinted line for the current error (1-based line, or
+    // null to clear). Dispatched via setEditorError / clearEditorError.
+    const setErrorEffect = state.StateEffect.define();
+    const errorField = state.StateField.define({
+      create() {
+        return view.Decoration.none;
+      },
+      update(deco, tr) {
+        deco = deco.map(tr.changes);
+        for (const e of tr.effects) {
+          if (!e.is(setErrorEffect)) continue;
+          if (e.value == null) {
+            deco = view.Decoration.none;
+            continue;
+          }
+          const lineNo = e.value;
+          if (lineNo < 1 || lineNo > tr.state.doc.lines) {
+            deco = view.Decoration.none;
+            continue;
+          }
+          const line = tr.state.doc.line(lineNo);
+          const marks = [
+            view.Decoration.line({ class: "cm-errorLine" }).range(line.from),
+          ];
+          if (line.to > line.from) {
+            marks.push(
+              view.Decoration.mark({ class: "cm-errorUnderline" }).range(
+                line.from,
+                line.to,
+              ),
+            );
+          }
+          deco = view.Decoration.set(marks);
+        }
+        return deco;
+      },
+      provide: (f) => view.EditorView.decorations.from(f),
+    });
 
     function create(parent, doc, onChange) {
       const updateListener = view.EditorView.updateListener.of((u) => {
@@ -122,11 +171,17 @@ function loadCodeMirror() {
           ]),
           theme,
           view.EditorView.lineWrapping,
+          errorField,
           updateListener,
         ],
       });
       return new view.EditorView({ state: startState, parent });
     }
+
+    cmSetErrorLine = (line) => {
+      if (!cmView) return;
+      cmView.dispatch({ effects: setErrorEffect.of(line) });
+    };
 
     return { create };
   });
@@ -184,7 +239,22 @@ export function mountEditor(initialText, onChange) {
         cmView = CM.create(el, initialText, (t) => {
           if (cmOnChange) cmOnChange(t);
         });
+        // Apply any error that arrived before the editor finished loading.
+        if (cmSetErrorLine) cmSetErrorLine(pendingErrorLine);
       })
       .catch((e) => console.error("CodeMirror failed to load:", e));
   });
+}
+
+/// Underline the 1-based `line` in red. `message` is accepted for a stable
+/// Gleam API; the app shows the text in its own output panel.
+export function setEditorError(line, _message) {
+  pendingErrorLine = line;
+  if (cmSetErrorLine) cmSetErrorLine(line);
+}
+
+/// Remove any error underline.
+export function clearEditorError() {
+  pendingErrorLine = null;
+  if (cmSetErrorLine) cmSetErrorLine(null);
 }
